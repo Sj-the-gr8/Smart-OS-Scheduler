@@ -1,0 +1,32 @@
+# Student 1
+# Test Case E: Continuous Short-Job Inflow
+# 1 large job (50 pages) arrives at t=5, after short 2-page jobs are
+# already streaming in every 2 time units (t=0,2,4,...). Because the
+# printer stays continuously busy with back-to-back short jobs, SJF never
+# has an idle moment where the large job is the only candidate -- it gets
+# passed over every time the printer frees up, reproducing genuine
+# starvation (not just "runs first because it's alone"). Smart Queue's
+# tau_fair aging is expected to rescue it once its wait crosses the
+# fairness threshold.
+# job_id,user_name,arrival_time,total_pages,priority
+1,FacultyThesis,5,50,3
+2,StudentA,0,2,3
+3,StudentB,2,2,3
+4,StudentC,4,2,3
+5,StudentD,6,2,3
+6,StudentE,8,2,3
+7,StudentF,10,2,3
+8,StudentG,12,2,3
+9,StudentH,14,2,3
+10,StudentI,16,2,3
+11,StudentJ,18,2,3
+12,StudentK,20,2,3
+13,StudentL,22,2,3
+14,StudentM,24,2,3
+15,StudentN,26,2,3
+16,StudentO,28,2,3
+17,StudentP,30,2,3
+18,StudentQ,32,2,3
+19,StudentR,34,2,3
+20,StudentS,36,2,3
+21,StudentT,38,2,3

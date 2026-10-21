@@ -1,0 +1,27 @@
+# C build artifacts
+build/
+*.o
+*.out
+
+# Runtime output
+queue_log.csv
+
+# Generated dashboard data and run captures
+dashboard/runs/
+dashboard/policy_results.csv
+dashboard/learned_settings.csv
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Local environment and editor files
+.venv/
+venv/
+.env
+.vscode/
+.idea/
+
+# Operating-system files
+.DS_Store
+Thumbs.db

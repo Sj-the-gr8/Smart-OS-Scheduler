@@ -1,0 +1,10 @@
+# Student 1
+# Test Case C: Heterogeneous Priorities
+# 6 jobs arriving simultaneously with diverse sizes (2-30 pages) and priorities (1-5).
+# job_id,user_name,arrival_time,total_pages,priority
+1,StudentA,0,2,1
+2,StudentB,0,8,2
+3,FacultyC,0,15,5
+4,StudentD,0,30,1
+5,ScholarE,0,12,4
+6,StudentF,0,6,3

@@ -1,0 +1,25 @@
+# Test Case G: Three-Level Queue (Dean / Faculty-Staff / Student)
+# Level from user_name: Dean* -> DEAN (FCFS, preempts at page boundary);
+# Faculty*/Staff* -> FACULTY (Round Robin; urgent=1 runs to completion,
+# FCFS among urgent jobs); everything else -> STUDENT (SmartQueue, with a
+# starvation turn once a job waits >= tau_fair).
+# Scenarios exercised:
+#   t=0  two Faculty/Staff jobs time-slice under Round Robin
+#   t=4  urgent Faculty job (6) cuts in and runs to completion
+#   t=6  Dean job (7) preempts the urgent job mid-print
+#   t~12 waiting Student jobs cross tau_fair and get a starvation turn
+#   t=22 second urgent Faculty job (13) queues behind nothing but the Dean
+# job_id,user_name,arrival_time,total_pages,priority,urgent
+1,FacultyMehta,0,10,3,0
+2,StaffOffice,0,8,2,0
+3,StudentA,0,4,2,0
+4,StudentB,0,2,3,0
+5,StudentC,2,6,1,0
+6,FacultyExams,4,6,5,1
+7,DeanAcademics,6,3,5,0
+8,FacultyRao,12,12,3,0
+9,StudentD,14,3,2,0
+10,StaffAccounts,16,5,2,0
+11,DeanOffice,20,2,4,0
+12,StudentE,21,1,1,0
+13,FacultyKumar,22,4,4,1
