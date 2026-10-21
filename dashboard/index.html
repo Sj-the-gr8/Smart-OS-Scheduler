@@ -1,0 +1,373 @@
+<!doctype html>
+<!-- Sanchit Jindal -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Is SmartQueue Smart?</title>
+<style>
+/* Layout: one column of cards; headline tiles, then the scoreboard, then
+   two charts side by side, the learned-settings table and the notes. */
+:root {
+  --bg: #f4f4f1; --panel: #fcfcfb; --fg: #111110; --muted: #5f5e5a;
+  --line: #e1e0d9; --grid: #ebeae4; --axis: #b9b8ae; --accent: #2a78d6;
+  --chart-muted: #b4b2a9; --bad: #d03b3b; --popover: #ffffff;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --fs-caption: 12px; --fs-body: 14px; --fs-heading: 16px; --fs-title: 26px;
+  --radius: 8px; --gap: 16px; --pad: 20px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d0d0d; --panel: #1a1a19; --fg: #f5f5f2; --muted: #a8a79f;
+    --line: #2c2c2a; --grid: #262624; --axis: #45453f; --accent: #3987e5;
+    --chart-muted: #5f5e5a; --popover: #232322;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+/* Elements with the hidden attribute stay hidden even when a class gives
+   them a display value (e.g. .sq-card's display: flex). */
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: var(--fs-body)/1.5 var(--font-body); }
+.sq { max-width: 1200px; margin-inline: auto; padding: 32px 16px 48px; display: flex; flex-direction: column; gap: 24px; }
+.sq h1 { font-family: var(--font-display); font-weight: 400; font-size: calc(var(--fs-title) * 1.25); margin: 0; text-wrap: balance; }
+.sq h2 { font-size: var(--fs-heading); font-weight: 600; margin: 0; text-wrap: balance; }
+.sq p { margin: 0; }
+.sq-take { color: var(--muted); margin-top: 6px; max-width: 75ch; }
+.sq-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: var(--gap); }
+.sq-card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--pad); min-width: 0; position: relative; display: flex; flex-direction: column; gap: 10px; }
+.sq-note { color: var(--muted); font-size: var(--fs-caption); max-width: 85ch; }
+.sq-label { color: var(--muted); font-size: var(--fs-caption); }
+.sq-big { font-family: var(--font-display); font-size: calc(var(--fs-title) * 1.5); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.sq-big small { font-family: var(--font-body); font-size: var(--fs-heading); color: var(--muted); }
+.sq-sub { font-size: var(--fs-caption); color: var(--muted); font-variant-numeric: tabular-nums; }
+.sq-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: var(--gap); }
+.sq-scroll { overflow-x: auto; }
+.sq-codes, .sq-legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-caption); color: var(--muted); }
+.sq-codes b { color: var(--fg); font-weight: 600; }
+.sq-sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+.sq-tip { position: absolute; pointer-events: none; background: var(--popover); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 4px 16px rgba(0,0,0,.12); padding: 6px 10px; font-size: var(--fs-caption); font-variant-numeric: tabular-nums; z-index: 5; max-width: 18rem; }
+.sq-tip .h { color: var(--muted); margin-bottom: 2px; }
+.sq-table { border-collapse: collapse; width: 100%; font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+.sq-table th, .sq-table td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.sq-table th { color: var(--muted); font-weight: 600; }
+.sq-table th:first-child, .sq-table td:first-child { text-align: left; }
+.sq-bar { display: inline-flex; align-items: center; gap: 6px; }
+.sq-bar i { display: inline-block; height: 8px; border-radius: 4px; background: var(--accent); }
+.sq-limit { border-left: 3px solid var(--chart-muted); }
+.sq-missing { border-left: 3px solid var(--bad); }
+.sq-foot { color: var(--muted); font-size: var(--fs-caption); }
+code { font-size: 0.95em; }
+</style>
+</head>
+<body>
+<div class="sq">
+  <section class="sq-card sq-missing" id="sq-missing" hidden>
+    <h2>No data yet</h2>
+    <p class="sq-note">dashboard/data.js is missing. In WSL, run <code>make dashboard</code> from the project folder, then reload this page.</p>
+  </section>
+
+  <header>
+    <h1>Is SmartQueue smart?</h1>
+    <p class="sq-take" id="sq-takeaway"></p>
+  </header>
+
+  <section class="sq-tiles">
+    <div class="sq-card">
+      <span class="sq-label">Best or tied-best (within 0.5%)</span>
+      <span class="sq-big"><span id="t-tied">—</span> <small>of <span id="t-n1">—</span> workloads</small></span>
+      <span class="sq-sub">Scored on priority-weighted wait plus a penalty per starved job</span>
+    </div>
+    <div class="sq-card">
+      <span class="sq-label">Learning beat the fixed weights</span>
+      <span class="sq-big"><span id="t-improved">—</span> <small>of <span id="t-n2">—</span> workloads</small></span>
+      <span class="sq-sub">Never worse; biggest cut in score <span id="t-bigcut">—</span></span>
+    </div>
+    <div class="sq-card">
+      <span class="sq-label">Real KTH log, average wait</span>
+      <span class="sq-big" id="t-kth">—</span>
+      <span class="sq-sub">Fixed SmartQueue: <span id="t-kth-fixed">—</span> · cut of <span id="t-kth-cut">—</span> · <span id="t-kth-jobs">—</span> real jobs</span>
+    </div>
+  </section>
+
+  <section class="sq-card" id="sq-scoreboard">
+    <h2>How far each policy is from the best, per workload</h2>
+    <p class="sq-note">Each cell is a policy's score divided by the best score on that workload: 1.00 is the best, lighter is worse.
+      Every fixed policy is good on some workloads and poor on others. SmartAdaptive's row stays at or near 1.00 except on the convoy (B).</p>
+    <div class="sq-scroll"><div id="sq-heat" style="min-height:290px"></div></div>
+    <div class="sq-codes" id="sq-codes"></div>
+  </section>
+
+  <div class="sq-grid2">
+    <section class="sq-card" id="sq-learning">
+      <h2>Fixed weights versus learned weights</h2>
+      <p class="sq-note">SmartQueue's score with the default weights (α 1, β 1, γ 0.5, τ = 2 × average pages) and after learning. Lower is better; log scale.</p>
+      <div class="sq-legend"><span><i class="sq-sw" style="background:var(--chart-muted)"></i>Fixed weights</span><span><i class="sq-sw" style="background:var(--accent)"></i>Learned weights</span></div>
+      <div id="sq-dumbbell" style="min-height:300px"></div>
+    </section>
+    <section class="sq-card" id="sq-vs-sjf">
+      <h2>Not just SJF: important jobs are served sooner</h2>
+      <p class="sq-note">SmartAdaptive's priority-weighted average wait compared with Shortest Job First. Left of zero means higher-priority jobs waited less than under SJF.</p>
+      <div id="sq-diverge" style="min-height:300px"></div>
+    </section>
+  </div>
+
+  <section class="sq-card" id="sq-settings">
+    <h2>What it learned from each workload</h2>
+    <p class="sq-note">Stage 1 reads three signals from how FCFS, SJF, Priority and Round Robin did; Stage 2 tunes by simulation.
+      A strong size signal pushes γ up (favour short jobs), a priority signal pushes α up, starvation pushes β up.
+      The override threshold τ starts at the longest FCFS wait instead of the fixed 2 × average pages.</p>
+    <div class="sq-scroll">
+      <table class="sq-table">
+        <thead><tr>
+          <th>Workload</th><th>Jobs</th><th>Size signal</th><th>Priority signal</th><th>Starvation signal</th>
+          <th>α priority</th><th>β wait</th><th>γ size</th><th>τ learned</th><th>τ fixed rule</th>
+        </tr></thead>
+        <tbody id="sq-table-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sq-card sq-limit">
+    <h2>Where it is not smart yet: the convoy</h2>
+    <p class="sq-note">In workload B a 50-page job arrives alone and starts printing, and five 1-page jobs arrive behind it.
+      SmartQueue never interrupts a running job, so no choice of weights helps: SmartAdaptive waits
+      <b id="t-convoy-sa">—</b> on average, while Round Robin, which interrupts every 3 pages, waits <b id="t-convoy-rr">—</b>.
+      The next step is to let the learner also decide whether to interrupt, using how much Round Robin beats the others as its signal.</p>
+  </section>
+
+  <section class="sq-card">
+    <h2>How the score works</h2>
+    <p class="sq-note">Score = average wait weighted by each job's priority (1–5) + τ × share of jobs that waited longer than τ, where τ = 2 × the workload's average job size.
+      The same τ judges every policy, so SmartAdaptive cannot look better by redefining starvation. Waits are in pages (1 time unit = 1 printed page).
+      Workloads A–H are the project's test cases; KTH is 200 real jobs from the Parallel Workloads Archive (KTH SP2, 1996–97) mapped to print jobs.
+      Weights are learned on the same workload they are scored on, like calibrating a spooler on its own print logs.</p>
+  </section>
+
+  <p class="sq-foot" id="sq-foot"></p>
+</div>
+
+<script src="vendor/d3.min.js"></script>
+<script src="data.js"></script>
+<script>
+(() => {
+  const DATA = window.SQ_DATA;
+  if (!DATA || !window.d3) { document.getElementById('sq-missing').hidden = false; return; }
+
+  const POLICIES = ['SmartAdaptive', 'SmartQueue', 'SJF', 'RoundRobin', 'Priority', 'MultiLevel', 'FCFS'];
+  const f1 = d3.format('.1f'), f2 = d3.format('.2f'), pct0 = d3.format('.0%'), pctS = d3.format('+.1%');
+  const results = DATA.results;
+  const learning = [...DATA.learning].sort((a, b) => a.order - b.order);
+  const workloads = learning.map((l) => ({ workload: l.workload, code: l.code, name: l.workload_name }));
+  const find = (w, p) => results.find((r) => r.workload === w && r.policy === p);
+  const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+
+  /* ---- derived numbers ---------------------------------------------- */
+  const best = {};
+  for (const r of results) best[r.workload] = Math.min(best[r.workload] ?? Infinity, r.objective);
+  const ratio = (w, p) => { const r = find(w, p); return r ? r.objective / best[w] : null; };
+
+  let tied = 0, outright = 0;
+  for (const w of workloads) {
+    const mine = find(w.workload, 'SmartAdaptive').objective;
+    const others = Math.min(...results.filter((r) => r.workload === w.workload && r.policy !== 'SmartAdaptive').map((r) => r.objective));
+    if (mine <= others * 1.005) tied++;
+    if (mine < others * 0.995) outright++;
+  }
+  const cuts = learning.map((l) => 1 - l.objective_learned / l.objective_fixed);
+  const improved = cuts.filter((c) => c > 0.001).length;
+
+  set('t-tied', tied); set('t-n1', workloads.length);
+  set('t-improved', improved); set('t-n2', workloads.length); set('t-bigcut', pct0(Math.max(...cuts)));
+  const kthA = find('real_kth_sp2', 'SmartAdaptive'), kthF = find('real_kth_sp2', 'SmartQueue');
+  if (kthA && kthF) {
+    set('t-kth', f1(kthA.avg_wait)); set('t-kth-fixed', f1(kthF.avg_wait));
+    set('t-kth-cut', pct0(1 - kthA.avg_wait / kthF.avg_wait)); set('t-kth-jobs', kthA.jobs);
+  }
+  const cSA = find('test_b_convoy', 'SmartAdaptive'), cRR = find('test_b_convoy', 'RoundRobin');
+  if (cSA && cRR) { set('t-convoy-sa', f1(cSA.avg_wait)); set('t-convoy-rr', f1(cRR.avg_wait)); }
+  set('sq-takeaway', `SmartAdaptive is the best or tied-best policy on ${tied} of ${workloads.length} workloads and beats every fixed policy outright on ${outright}. ` +
+    'It gets there by reading each workload and choosing its own weights. Its one loss is the convoy test, which needs a policy that can interrupt a running job.');
+  set('sq-foot', `Generated ${DATA.generated} from smartprint runs (dashboard/runs). Data also in dashboard/policy_results.csv and dashboard/learned_settings.csv.`);
+
+  const codes = document.getElementById('sq-codes');
+  for (const w of workloads) { const s = document.createElement('span'); const b = document.createElement('b'); b.textContent = w.code; s.append(b, ' ' + w.name); codes.appendChild(s); }
+
+  const vsSjf = workloads.map((w) => {
+    const s = find(w.workload, 'SJF'), a = find(w.workload, 'SmartAdaptive');
+    return { ...w, sjf: s.prio_wait, adaptive: a.prio_wait, change: a.prio_wait / s.prio_wait - 1 };
+  });
+
+  /* ---- shared helpers ------------------------------------------------- */
+  function tipFor(card) {
+    let tip = card.querySelector(':scope > .sq-tip');
+    if (!tip) { tip = document.createElement('div'); tip.className = 'sq-tip'; tip.hidden = true; card.appendChild(tip); }
+    return tip;
+  }
+  function showTip(tip, card, event, head, lines) {
+    tip.replaceChildren();
+    const h = document.createElement('div'); h.className = 'h'; h.textContent = head; tip.appendChild(h);
+    for (const l of lines) { const d = document.createElement('div'); d.textContent = l; tip.appendChild(d); }
+    tip.hidden = false;
+    const cr = card.getBoundingClientRect();
+    let x = event.clientX - cr.left + 12, y = event.clientY - cr.top + 12;
+    if (x + tip.offsetWidth > cr.width - 8) x = event.clientX - cr.left - tip.offsetWidth - 12;
+    if (y + tip.offsetHeight > cr.height - 8) y = event.clientY - cr.top - tip.offsetHeight - 12;
+    tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
+  }
+  function measure(svg, texts) {
+    const t = svg.append('text').style('font-size', 'var(--fs-caption)');
+    let w = 0;
+    for (const s of texts) { t.text(s); w = Math.max(w, t.node().getComputedTextLength()); }
+    t.remove();
+    return w;
+  }
+  const txt = (sel) => sel.style('font-size', 'var(--fs-caption)').style('font-variant-numeric', 'tabular-nums');
+
+  /* ---- scoreboard heatmap -------------------------------------------- */
+  function drawHeat() {
+    const box = document.getElementById('sq-heat'), card = document.getElementById('sq-scoreboard');
+    box.replaceChildren();
+    const svg = d3.select(box).append('svg');
+    const labelW = measure(svg, POLICIES) + 18;
+    const avail = box.clientWidth;
+    const cellW = Math.max(44, (avail - labelW) / workloads.length), cellH = 32, headH = 26;
+    const W = labelW + cellW * workloads.length, H = headH + cellH * POLICIES.length;
+    svg.attr('viewBox', `0 0 ${W} ${H}`).attr('width', W <= avail ? '100%' : W).attr('role', 'img')
+      .attr('aria-label', 'Score of each policy relative to the best, per workload');
+    const tip = tipFor(card);
+    txt(svg.selectAll('text.col').data(workloads).join('text').attr('class', 'col')
+      .attr('x', (d, i) => labelW + cellW * i + cellW / 2).attr('y', 16).attr('text-anchor', 'middle'))
+      .style('fill', 'var(--muted)').text((d) => d.code);
+    const rows = svg.selectAll('g.row').data(POLICIES).join('g').attr('class', 'row').attr('transform', (p, i) => `translate(0,${headH + cellH * i})`);
+    txt(rows.append('text').attr('x', labelW - 10).attr('y', cellH / 2).attr('dy', '0.35em').attr('text-anchor', 'end'))
+      .style('font-weight', (p) => (p === 'SmartAdaptive' ? 600 : null))
+      .style('fill', (p) => (p === 'SmartAdaptive' ? 'var(--fg)' : 'var(--muted)')).text((p) => p);
+    const logMax = Math.log(4);
+    rows.each(function (p) {
+      const g = d3.select(this);
+      workloads.forEach((w, i) => {
+        const r = ratio(w.workload, p);
+        if (r == null) return;
+        const t = Math.min(1, Math.log(r) / logMax), isBest = r < 1.005;
+        const cell = g.append('g').attr('transform', `translate(${labelW + cellW * i},0)`);
+        cell.append('rect').attr('x', 1).attr('y', 1).attr('width', cellW - 2).attr('height', cellH - 2).attr('rx', 4).style('fill', 'var(--panel)');
+        cell.append('rect').attr('x', 1).attr('y', 1).attr('width', cellW - 2).attr('height', cellH - 2).attr('rx', 4)
+          .style('fill', 'var(--accent)').style('fill-opacity', 0.06 + 0.86 * t)
+          .style('stroke', isBest ? 'var(--fg)' : 'none').style('stroke-width', isBest ? 1.5 : 0);
+        txt(cell.append('text').attr('x', cellW / 2).attr('y', cellH / 2).attr('dy', '0.35em').attr('text-anchor', 'middle'))
+          .style('font-weight', isBest ? 600 : null).style('fill', t > 0.55 ? 'var(--panel)' : 'var(--fg)')
+          .text(isBest ? '1.00' : r >= 10 ? d3.format('.0f')(r) + '×' : f2(r) + '×');
+        cell.append('rect').attr('width', cellW).attr('height', cellH).style('fill', 'transparent')
+          .on('mousemove', (event) => {
+            const row = find(w.workload, p);
+            const top = results.filter((x) => x.workload === w.workload).reduce((a, b) => (a.objective <= b.objective ? a : b));
+            showTip(tip, card, event, `${w.code} · ${w.name} · ${p}`, [
+              `Score ${f2(row.objective)} (best ${f2(top.objective)}, ${top.policy})`,
+              isBest ? 'Best on this workload' : `${f2(r)}× the best`,
+              `Average wait ${f1(row.avg_wait)} · starved ${row.starved}`,
+            ]);
+          })
+          .on('mouseleave', () => { tip.hidden = true; });
+      });
+    });
+  }
+
+  /* ---- row chart frame shared by the two side-by-side charts --------- */
+  function rowChart(boxId, cardId, label, rows) {
+    const box = document.getElementById(boxId), card = document.getElementById(cardId);
+    box.replaceChildren();
+    const svg = d3.select(box).append('svg');
+    const W = Math.max(280, box.clientWidth);
+    const labelW = Math.min(W * 0.42, measure(svg, rows.map((r) => `${r.code} ${r.name}`)) + 12);
+    const rowH = 28, top = 6, axisH = 26, H = top + rowH * rows.length + axisH;
+    svg.attr('viewBox', `0 0 ${W} ${H}`).attr('width', '100%').attr('role', 'img').attr('aria-label', label);
+    const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (r, i) => `translate(0,${top + rowH * i + rowH / 2})`);
+    txt(g.append('text').attr('dy', '0.35em')).style('fill', 'var(--fg)').text((r) => `${r.code} ${r.name}`);
+    return { svg, g, W, labelW, rowH, top, plotBottom: top + rowH * rows.length, tip: tipFor(card), card };
+  }
+  function gridAndAxis(c, x, ticks, fmt, zeroAt) {
+    c.svg.insert('g', ':first-child').selectAll('line').data(ticks).join('line')
+      .attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', c.top).attr('y2', c.plotBottom)
+      .style('stroke', (t) => (t === zeroAt ? 'var(--axis)' : 'var(--grid)')).style('stroke-width', 1);
+    txt(c.svg.append('g').selectAll('text').data(ticks).join('text')
+      .attr('x', (t) => x(t)).attr('y', c.plotBottom + 16).attr('text-anchor', 'middle')).style('fill', 'var(--muted)').text(fmt);
+  }
+  function hover(c, head, lines) {
+    c.g.append('rect').attr('y', -c.rowH / 2).attr('width', c.W).attr('height', c.rowH).style('fill', 'transparent')
+      .on('mousemove', (event, r) => showTip(c.tip, c.card, event, head(r), lines(r)))
+      .on('mouseleave', () => { c.tip.hidden = true; });
+  }
+
+  function drawDumbbell() {
+    const rows = learning.map((l) => ({ ...l, name: l.workload_name, fixed: l.objective_fixed, learned: l.objective_learned }));
+    const c = rowChart('sq-dumbbell', 'sq-learning', 'Score with fixed and learned weights per workload', rows);
+    const endW = measure(c.svg, ['no change', '−100%']) + 10;
+    const lo = d3.min(rows, (r) => Math.min(r.fixed, r.learned)), hi = d3.max(rows, (r) => Math.max(r.fixed, r.learned));
+    const x = d3.scaleLog([lo * 0.8, hi * 1.15], [c.labelW, c.W - endW]);
+    gridAndAxis(c, x, [1, 2, 5, 10, 20, 50, 100, 200, 500].filter((t) => t >= lo * 0.8 && t <= hi * 1.15), (t) => t, null);
+    c.g.append('line').attr('x1', (r) => x(r.fixed)).attr('x2', (r) => x(r.learned))
+      .style('stroke', 'var(--chart-muted)').style('stroke-width', 2).style('stroke-linecap', 'round');
+    for (const [key, color] of [['fixed', 'var(--chart-muted)'], ['learned', 'var(--accent)']]) {
+      c.g.append('circle').attr('cx', (r) => x(r[key])).attr('r', 5).style('fill', color).style('stroke', 'var(--panel)').style('stroke-width', 2);
+    }
+    const gained = (r) => r.learned < r.fixed * 0.999;
+    txt(c.g.append('text').attr('x', c.W - 4).attr('dy', '0.35em').attr('text-anchor', 'end'))
+      .style('fill', (r) => (gained(r) ? 'var(--fg)' : 'var(--muted)'))
+      .text((r) => (gained(r) ? '−' + pct0(1 - r.learned / r.fixed) : 'no change'));
+    hover(c, (r) => `${r.code} · ${r.name}`, (r) => [
+      `Fixed weights: score ${f2(r.fixed)}`, `Learned weights: score ${f2(r.learned)}`,
+      `Learned α ${f2(r.alpha)}, β ${f2(r.beta)}, γ ${f2(r.gamma)}, τ ${r.tau_override}`,
+    ]);
+  }
+
+  function drawDiverge() {
+    const c = rowChart('sq-diverge', 'sq-vs-sjf', 'SmartAdaptive priority-weighted wait relative to SJF', vsSjf);
+    const lim = Math.max(0.25, d3.max(vsSjf, (r) => Math.abs(r.change)) * 1.1), pad = 46;
+    const x = d3.scaleLinear([-lim, lim], [c.labelW + pad, c.W - pad]);
+    gridAndAxis(c, x, [-0.2, -0.1, 0, 0.1, 0.2].filter((t) => Math.abs(t) <= lim), (t) => (t === 0 ? 'same as SJF' : d3.format('+.0%')(t)), 0);
+    const better = (r) => r.change < -0.001;
+    c.g.append('rect').attr('x', (r) => Math.min(x(0), x(r.change))).attr('y', -7)
+      .attr('width', (r) => Math.max(2, Math.abs(x(r.change) - x(0)))).attr('height', 14).attr('rx', 4)
+      .style('fill', (r) => (better(r) ? 'var(--accent)' : 'var(--chart-muted)'));
+    txt(c.g.append('text').attr('dy', '0.35em')
+      .attr('x', (r) => (r.change < 0 ? x(r.change) - 6 : Math.max(x(r.change), x(0) + 2) + 6))
+      .attr('text-anchor', (r) => (r.change < 0 ? 'end' : 'start')))
+      .style('fill', (r) => (better(r) ? 'var(--fg)' : 'var(--muted)'))
+      .text((r) => (Math.abs(r.change) < 0.001 ? 'same' : pctS(r.change)));
+    hover(c, (r) => `${r.code} · ${r.name}`, (r) => [
+      `SJF: priority-weighted wait ${f2(r.sjf)}`, `SmartAdaptive: ${f2(r.adaptive)}`, `Change ${pctS(r.change)}`,
+    ]);
+  }
+
+  function drawTable() {
+    const body = document.getElementById('sq-table-body');
+    body.replaceChildren();
+    const signal = (v) => {
+      const s = document.createElement('span'); s.className = 'sq-bar';
+      const bar = document.createElement('i'); bar.style.width = Math.round(v * 48) + 'px';
+      s.append(f2(v), bar); return s;
+    };
+    for (const r of learning) {
+      const tr = document.createElement('tr');
+      for (const c of [`${r.code} ${r.workload_name}`, r.jobs, signal(r.size_signal), signal(r.priority_signal), signal(r.starvation_signal),
+                       f2(r.alpha), f2(r.beta), f2(r.gamma), r.tau_override, r.tau_fixed]) {
+        const td = document.createElement('td');
+        if (c instanceof Node) td.appendChild(c); else td.textContent = c;
+        tr.appendChild(td);
+      }
+      body.appendChild(tr);
+    }
+  }
+
+  const drawAll = () => { drawHeat(); drawDumbbell(); drawDiverge(); };
+  drawTable();
+  drawAll();
+  let pending;
+  window.addEventListener('resize', () => { clearTimeout(pending); pending = setTimeout(drawAll, 120); });
+})();
+</script>
+</body>
+</html>
