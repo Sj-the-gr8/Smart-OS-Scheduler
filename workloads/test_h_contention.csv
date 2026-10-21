@@ -1,0 +1,32 @@
+# Test Case H: Contention Bursts (Dean / Faculty / Student at the same tick)
+# Every 4 ticks a burst of four jobs arrives at the SAME time: one Dean,
+# one Faculty/Staff and two Students. In the --demo run each job belongs to
+# a different submitter thread (dean, faculty, student-1, student-2), so all
+# four threads wake on the same clock tick and race for the shared mutex.
+# Each burst brings ~15 pages but only 4 ticks pass before the next one, so
+# work piles up in all three queues and they compete for the printer.
+# job_id,user_name,arrival_time,total_pages,priority,urgent
+1,DeanAcademics,0,2,5,0
+2,FacultyMehta,0,6,3,0
+3,StudentA,0,4,2,0
+4,StudentB,0,3,3,0
+5,DeanOffice,4,1,4,0
+6,StaffOffice,4,5,2,0
+7,StudentC,4,2,1,0
+8,StudentD,4,5,2,0
+9,DeanAcademics,8,3,5,0
+10,FacultyExams,8,4,5,1
+11,StudentE,8,3,3,0
+12,StudentF,8,2,2,0
+13,DeanOffice,12,2,4,0
+14,FacultyRao,12,6,3,0
+15,StudentG,12,4,1,0
+16,StudentH,12,1,2,0
+17,DeanAcademics,16,1,5,0
+18,StaffAccounts,16,5,2,0
+19,StudentI,16,3,3,0
+20,StudentJ,16,2,1,0
+21,DeanOffice,20,2,4,0
+22,FacultyKumar,20,3,4,1
+23,StudentK,20,5,2,0
+24,StudentL,20,2,3,0
